@@ -1,13 +1,14 @@
 const express = require("express");
 const mongoose = require("mongoose");
 const path = require("node:path");
+require('dotenv').config();
 
 const app = express();
 const port = 3000;
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
-mongoose.connect("mongodb://localhost:27017/bucketApp", {
+mongoose.connect(process.env.MONGO_URL, {  
   useNewUrlParser: true,
   useUnifiedTopology: true,
 });
