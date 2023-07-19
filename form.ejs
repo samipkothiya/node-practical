@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.4/jquery.min.js"></script>
+</head>
+
+<body>
+  <div style="width: 100%; display: flex;">
+    <div style="width: 50%;">
+      <h1>Add Bucket</h1>
+      <form id="bucketForm" action="bucket" method="POST">
+        Name: <input type="text" name="bucketName"><br><br>
+        Volume: <input type="number" name="volume"><br><br>
+        <input type="submit" value="Save" onclick="handleFormSubmit('#bucketForm', event)">
+      </form>
+    </div>
+
+    <div style="width: 50%;">
+      <h1>Add Ball</h1>
+      <form id="ballForm" action="ball" method="POST">
+        Name: <input type="text" name="ballName"><br><br>
+        Volume: <input type="number" name="volume"><br><br>
+        <input type="submit" value="Save" onclick="handleFormSubmit('#ballForm', event)">
+      </form>
+    </div>
+  </div>
+<hr>
+<h1>Fill Bucket</h1>
+  <form id="placeForm" action="place-balls" method="POST">
+    <div id="ballsContainer">
+      
+    </div>
+    <input type="submit" value="Save" onclick="handleFillData('#placeForm', event)">
+  </form>
+</body>
+<script>
+  $(document).ready(function() {
+    refreshBallsContainer();
+  });
+    function handleFormSubmit(formId, event) {
+      event.preventDefault();
+      var formData = $(formId).serialize();
+      $.ajax({
+        url: $(formId).attr("action"), 
+        type: $(formId).attr("method"),
+        data: formData, 
+        success: function(result) {
+         alert(result)
+          refreshBallsContainer();
+        },
+        error: function(error) {
+          console.error(error);
+        }
+      });
+    }
+
+    function refreshBallsContainer() {
+      $.ajax({
+        url: "/allBalls", 
+        success: function(result) {
+          $("#ballsContainer").empty();
+
+          
+          result.balls.forEach(function(ball,index) {
+            var ballHtml = 
+              `<div>Ball Name: ${ball.name} <input type="number" name="ball[${index}]" data-data='${JSON.stringify(ball)}'/></br></br></div>`;                              
+            $("#ballsContainer").append(ballHtml);
+          });
+        },
+        error: function(error) {
+          console.error(error);
+        }
+      });
+    }
+  
+    function handleFillData(formId, event) {
+      event.preventDefault();
+      var formData = $(formId).serialize();      
+      var inputFieldsWithData = $("input[data-data]");
+      console.log('inputFieldsWithData: ', inputFieldsWithData);      
+      var jsonDataArray = [];
+      
+      inputFieldsWithData.each(function () {
+        var jsonData = $(this).data("data"); 
+      if($(this).val() !== ""){
+        jsonData["qty"] = parseFloat($(this).val());
+        jsonDataArray.push(jsonData); 
+      }
+      });
+      var dataToSend = {
+    data: jsonDataArray
+  };
+      $.ajax({
+        url: $(formId).attr("action"), 
+        type: $(formId).attr("method"),
+        data: JSON.stringify(dataToSend), // Convert data to JSON string
+    contentType: "application/json", 
+        success: function(result) {
+         alert(result)
+          
+        },
+        error: function(error) {
+          console.error(error);
+        }
+      });
+    }
+</script>
+</html>
