@@ -2,7 +2,6 @@ const express = require("express");
 const mongoose = require("mongoose");
 const path = require("node:path");
 require('dotenv').config();
-
 const app = express();
 const port = 3000;
 app.use(express.urlencoded({ extended: true }));
@@ -80,95 +79,53 @@ app.post("/ball", async (req, res) => {
 });
 
 // Place balls in buckets
-// app.post("/place-balls", async (req, res) => {
-//   try {
-//     const buckets = await Bucket.find({});
-//     const balls = req.body.data;
-
-//     buckets.sort((a, b) => calculateEmptyVolume(b) - calculateEmptyVolume(a));
-//     const totalEmptyVolume = buckets.reduce(
-//       (sum, bucket) => sum + calculateEmptyVolume(bucket),
-//       0
-//     );
-
-//     let ballsPlaced = 0;
-//     let resString="";
-//     for (const bucket of buckets) {
-//       const emptyVolume = calculateEmptyVolume(bucket);
-//       let butcketString=""; 
-//       const ballsToPlace = Math.min(
-//         balls.length - ballsPlaced,
-//         Math.floor(emptyVolume / (balls[0].volume * balls[0].qty))
-//       );
-
-//       if (ballsToPlace === 0) {
-//         continue;
-//       }
-//       bucket.filledVolume += ballsToPlace * (balls[0].volume * balls[0].qty);
-//       butcketString +=`Bucket ${bucket.name}: Place ${balls[0].qty} ${balls[0].name} Balls`;
-//       await bucket.save();
-//       ballsPlaced += ballsToPlace;
-    
-//       balls.splice(0, ballsToPlace);
-
-//       if (balls.length === 0) {
-//         break;
-//       }
-//       resString +=butcketString;
-//     }
-//     res.send(resString);
-//   } catch (error) {
-//     console.error("Error placing balls in buckets:", error);
-//     res.status(500).send("Error placing balls in buckets");
-//   }
-// });
-
-// Place balls in buckets
 app.post("/place-balls", async (req, res) => {
   try {
     const buckets = await Bucket.find({});
-    const balls = req.body.data;
-
-    // buckets.sort((a, b) => calculateEmptyVolume(b) - calculateEmptyVolume(a));
-    const totalEmptyVolume = buckets.reduce(
-      (sum, bucket) => sum + calculateEmptyVolume(bucket),
-      0
-    );
-
-    let ballsPlaced = 0;
+    let balls = req.body.data;
     let resString = "";
-    for (const bucket of buckets) {
-      const emptyVolume = calculateEmptyVolume(bucket);
-      let bucketString = "";
-      const ballsToPlace = Math.min(        
-        balls.length - ballsPlaced,
-        Math.floor(emptyVolume / (balls[0].volume * balls[0].qty))
-      );
-      
-      if (ballsToPlace === 0) {
+
+    let bucketIndex = 0;
+    let ballIndex = 0;
+
+    while (bucketIndex < buckets.length && ballIndex < balls.length) {
+      const bucket = buckets[bucketIndex];
+      resString+=`Bucket ${bucket.name}: `;
+
+      if (bucket.filledVolume === bucket.volume) {
+        bucketIndex++;
         continue;
       }
+      let emptyVolume = calculateEmptyVolume(bucket);
+      do {
+        const ball = balls[ballIndex];
+        const total = ball.qty * ball.volume;
 
-      const placedBalls = balls.slice(0, ballsToPlace);
-      bucket.filledVolume += ballsToPlace * (balls[0].volume * balls[0].qty);
-      await bucket.save();
-      ballsPlaced += ballsToPlace;
-      balls.splice(0, ballsToPlace);
+        if (emptyVolume > total) {
+          bucket.filledVolume += total;
+          emptyVolume -= total;
+          balls.splice(ballIndex, 1);
+          await bucket.save();
+          resString += `Place ${total} ${ball.name} balls and`
+        } else {
+          const finalQty = Math.floor(emptyVolume / ball.volume);
+          const remainingQty = ball.qty - finalQty;
+          bucket.filledVolume += finalQty * ball.volume;
+          emptyVolume = 0;
 
-      bucketString += `Bucket ${bucket.name}: Place `;
-      for (const ball of placedBalls) {
-        bucketString += `${ball.qty} ${ball.name} balls`;
-        if (balls.length > 0) {
-          bucketString += " and ";
+          if (remainingQty === 0) {
+            balls.splice(ballIndex, 1);
+          } else {
+            balls[ballIndex].qty = remainingQty;
+          }
+          resString += ` Place ${total} ${ball.name} balls and`
+          await bucket.save();
         }
-      }
-      bucketString += ".\n";
-      resString += bucketString;
-
-      if (balls.length === 0) {
-        break;
-      }
+      } while (emptyVolume > 0 && ballIndex < balls.length);
+      resString = resString.slice(0, -3)+'\n';
+      bucketIndex++;
     }
+
     res.send(resString);
   } catch (error) {
     console.error("Error placing balls in buckets:", error);
